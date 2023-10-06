@@ -6,6 +6,21 @@ Example:
     https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/default/MethodName | jq .
 """
 
+"""
+Set credentials on AWS CLI:
+aws configure set aws_access_key_id <ACCESS_KEY_ID>
+aws configure set aws_secret_access_key <ACCESS_KEY_SECRET>
+
+Test Invoke API Gateway:
+aws apigateway test-invoke-method \
+  --rest-api-id j4oijqh4zc \
+  --resource-id dd82w1 \
+  --http-method GET \
+  --output json
+
+aws apigateway get-resources --rest-api-id j4oijqh4zc
+"""
+
 try:
     from urllib.parse import urlparse, urlencode, parse_qs
 except ImportError:
@@ -48,3 +63,5 @@ if __name__ == "__main__":
 
     r = requests.get(url, headers=signing_headers(method, url, body))
     print(r.content.decode("utf-8"))
+
+

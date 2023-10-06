@@ -1,3 +1,9 @@
 AWS:
 - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html
 - https://gist.github.com/toddlers/7c324e39c2ef3058d6c50b895076b16f
+
+
+TODO:
+- add EC2 setup to CloudFormation
+- add IAM user creation for CTFUser and CTFRoot to CloudFormation
+- auto-configure separate AWS CLI creds to EC2 local user and local root

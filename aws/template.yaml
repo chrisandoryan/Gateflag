@@ -97,28 +97,28 @@ Resources:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
   CTFUserGetFlagThroughAPIGateway:
-    Type: AWS::IAM::Policy
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      PolicyName: CTFUserGetFlagThroughAPIGateway
+      ManagedPolicyName: CTFUserGetFlagThroughAPIGateway
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action: execute-api:Invoke
-            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:api-id/${HttpApi}/GET/user_flag
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/user_flag
       Roles: 
         - !Ref CTFUserRole
     DependsOn: "CTFUserRole"
   CTFRootGetFlagThroughAPIGateway:
-    Type: AWS::IAM::Policy
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      PolicyName: CTFRootGetFlagThroughAPIGateway
+      ManagedPolicyName: CTFRootGetFlagThroughAPIGateway
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action: execute-api:Invoke
-            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:api-id/${HttpApi}/GET/root_flag
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/root_flag
       Roles: 
         - !Ref CTFRootRole
     DependsOn: "CTFRootRole"
