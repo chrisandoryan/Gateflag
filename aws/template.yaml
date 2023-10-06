@@ -24,11 +24,24 @@ Resources:
         info:
           title: !Ref EnvironmentName
         paths:
-          /flag:
-            x-amazon-apigateway-get-method:
+          /user_flag:
+            get:
               responses:
                 default:
-                  description: "Default response for GET /flag"
+                  description: "GET /user_flag"
+              security:
+              - sigv4: []
+              x-amazon-apigateway-integration:
+                payloadFormatVersion: "1.0"
+                type: "http_proxy"
+                httpMethod: "ANY"
+                uri: !Ref FlagServerHost
+                connectionType: "INTERNET"
+          /root_flag:
+            get:
+              responses:
+                default:
+                  description: "GET /root_flag"
               security:
               - sigv4: []
               x-amazon-apigateway-integration:
@@ -59,6 +72,7 @@ Resources:
       StageName: '$default'
       ApiId: !Ref 'HttpApi'
       AutoDeploy: true
+  
   # IAM and Policy Establishment.
   CTFUserRole:
     Type: AWS::IAM::Role
@@ -82,13 +96,29 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-  CTFUserGetFlagPolicy:
+  CTFUserGetFlagThroughAPIGateway:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: MyPolicy
+      PolicyName: CTFUserGetFlagThroughAPIGateway
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action: execute-api:Invoke
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:api-id/${HttpApi}/GET/user_flag
+      Roles: 
+        - !Ref CTFUserRole
+    DependsOn: "CTFUserRole"
+  CTFRootGetFlagThroughAPIGateway:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CTFRootGetFlagThroughAPIGateway
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: execute-api:Invoke
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:api-id/${HttpApi}/GET/root_flag
+      Roles: 
+        - !Ref CTFRootRole
+    DependsOn: "CTFRootRole"
