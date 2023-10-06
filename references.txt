@@ -1,0 +1,3 @@
+AWS:
+- https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html
+- 

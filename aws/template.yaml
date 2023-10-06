@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS CloudFormation template for Flagtake deployment.
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: flag_fetcher_api
+    Description: "A friendly environment name that will be used for namespacing all cluster resources."
+  PrivateDNSNamespaceName:
+    Type: String
+    Default: flag_fetcher_dns
+    Description: "The private DNS name that identifies the name that you want to use to locate your resources."
+  FlagServerHost:
+    Type: String
+    Default: https://enof0oojs2xlq.x.pipedream.net
+    Description: "The URL of host server that will emit the CTF flag upon request."
+Resources:
+  # API Gateway Establishment. 
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: !Ref EnvironmentName
+        paths:
+          /flag:
+            x-amazon-apigateway-get-method:
+              responses:
+                default:
+                  description: "Default response for GET /flag"
+              security:
+              - sigv4: []
+              x-amazon-apigateway-integration:
+                payloadFormatVersion: "1.0"
+                type: "http_proxy"
+                httpMethod: "ANY"
+                uri: !Ref FlagServerHost
+                connectionType: "INTERNET"
+        components:
+          securitySchemes:
+            sigv4:
+              type: "apiKey"
+              name: "Authorization"
+              in: "header"
+              x-amazon-apigateway-authtype: "awsSigv4"
+        x-amazon-apigateway-cors:
+          allowOrigins:
+            - '*'
+          allowHeaders:
+            - '*'
+          allowMethods:
+            - 'PUT'
+            - 'GET'
+        x-amazon-apigateway-importexport-version: "1.0"
+  HttpApiStage:
+    Type: 'AWS::ApiGatewayV2::Stage'
+    Properties:
+      StageName: '$default'
+      ApiId: !Ref 'HttpApi'
+      AutoDeploy: true
+  # IAM and Policy Establishment.
+  CTFUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CTFUserRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+  CTFRootRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CTFRootRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+  CTFUserGetFlagPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MyPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: execute-api:Invoke
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:api-id/${HttpApi}/GET/user_flag
