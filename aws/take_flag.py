@@ -2,23 +2,8 @@
 """
 Provides a simple Python wrapper for invoking an API Gateway endpoint using IAM signed requests.
 Example:
-  python3 take_flag.py  \
-    https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/default/MethodName | jq .
-"""
-
-"""
-Set credentials on AWS CLI:
-aws configure set aws_access_key_id <ACCESS_KEY_ID>
-aws configure set aws_secret_access_key <ACCESS_KEY_SECRET>
-
-Test Invoke API Gateway:
-aws apigateway test-invoke-method \
-  --rest-api-id t06u8yy3m4 \
-  --resource-id wyps6g \
-  --http-method GET \
-  --output json
-
-aws apigateway get-resources --rest-api-id t06u8yy3m4
+   python3 take_flag.py https://eega5aaqa1.execute-api.ap-southeast-1.amazonaws.com/stable/user_flag
+   python3 take_flag.py https://eega5aaqa1.execute-api.ap-southeast-1.amazonaws.com/stable/root_flag
 """
 
 try:

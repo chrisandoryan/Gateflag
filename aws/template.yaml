@@ -12,7 +12,7 @@ Parameters:
     Description: "The private DNS name that identifies the name that you want to use to locate your resources."
   FlagServerHost:
     Type: String
-    Default: https://enonyzdk93vt.x.pipedream.net
+    Default: https://api.jsonbin.io/v3/qs/652140670574da7622b5a348
     Description: "The URL of host server that will emit the CTF flag upon request."
 Resources:
   # API Gateway Establishment. 
@@ -44,6 +44,10 @@ Resources:
         IntegrationHttpMethod: GET
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/user_flag
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: !Ref FlagModel
   RestApiRootFlagMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -55,6 +59,10 @@ Resources:
         IntegrationHttpMethod: GET
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/root_flag
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: !Ref FlagModel
   RestApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn: 
@@ -70,6 +78,28 @@ Resources:
       RestApiId: !Ref RestApi
       DeploymentId: !Ref RestApiDeployment
       Description: Stage marked as stable for Flagtake deployment.
+  FlagModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: application/json
+      Name: FlagModel
+      RestApiId: !Ref RestApi
+      Schema:
+        "$schema": http://json-schema.org/draft-04/schema#
+        title: Flag
+        type: object
+        additionalProperties: false
+        properties:
+          flag:
+            type: string
+          type:
+            type: string
+          generated_at:
+            type: string
+        required:
+          - flag
+          - type
+          - generated_at
 
   # IAM and Policy Establishment.
   CTFUserRole:
@@ -108,7 +138,9 @@ Resources:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Action: execute-api:Invoke
+            Action: 
+              - execute-api:Invoke
+              # - apigateway:*
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/user_flag
   CTFRootGetFlagThroughAPIGateway:
     Type: AWS::IAM::ManagedPolicy
@@ -118,5 +150,34 @@ Resources:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Action: execute-api:Invoke
+            Action: 
+              - execute-api:Invoke
+              # - apigateway:*
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/root_flag
+  
+  # CTF users creation
+  CTFUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: CTFUser
+      ManagedPolicyArns:
+        - !Ref CTFUserGetFlagThroughAPIGateway
+  CTFRoot:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: CTFRoot
+      ManagedPolicyArns:
+        - !Ref CTFRootGetFlagThroughAPIGateway
+  CTFUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref CTFUser
+  CTFRootAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref CTFRoot
+
+
+
+
+

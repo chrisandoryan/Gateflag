@@ -5,5 +5,19 @@ AWS:
 
 TODO:
 - add EC2 setup to CloudFormation
-- add IAM user creation for CTFUser and CTFRoot to CloudFormation
+- add IAM user creation for CTFUser and CTFRoot to CloudFormation OK
 - auto-configure separate AWS CLI creds to EC2 local user and local root
+
+
+Set credentials on AWS CLI:
+aws configure set aws_access_key_id <ACCESS_KEY_ID>
+aws configure set aws_secret_access_key <ACCESS_KEY_SECRET>
+
+Test Invoke API Gateway:
+aws apigateway test-invoke-method \
+  --rest-api-id eega5aaqa1 \
+  --resource-id a91oa5 \
+  --http-method GET \
+  --output json
+
+aws apigateway get-resources --rest-api-id eega5aaqa1
