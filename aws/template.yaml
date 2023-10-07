@@ -241,7 +241,7 @@ Resources:
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Flagtake CTFBox Security Group
+      GroupDescription: Security Group for Flagtake CTFBox 
       VpcId: !Ref Vpc
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
@@ -275,22 +275,22 @@ Resources:
           Value: Flagtake
       UserData:
         Fn::Base64: !Sub |
-          #!/bin/bash -xe
+          #!/bin/bash -x
           apt update -y
           apt install -y awscli python3-pip
           pip3 install boto3 requests
 
-          # Download and configure flag-taking script
-          curl ${FlagTakerScript} -o /usr/local/bin/takeflag 2&1>0
-          chmod a+x /usr/local/bin/takeflag
+          # Download and configure the flag-taking script
+          curl ${FlagTakerScript} -o /usr/local/bin/takeflag 2&1>0 && chmod a+x /usr/local/bin/takeflag
 
-          # Configure AWS CLI with the access key ID and secret access key for CTFRoot (shell execution from the instance's UserData is always running as root privilege by default)
+          # Configure AWS CLI with the access key ID and secret access key for CTFRoot
+          # Note: shell execution from the instance's UserData is always running as root privilege by default
           aws configure set aws_access_key_id ${CTFRootAccessKey}
           aws configure set aws_secret_access_key ${CTFRootAccessKey.SecretAccessKey}
           aws configure set region ${AWS::Region}
 
           # Set an environment variable for root user that points to the root_flag API gateway.
-          echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/root_flag' >> ~/.profile
+          echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/root_flag' >> ~/.bashrc
 
           # Configure AWS CLI with the access key ID and secret access key for CTFUser
           su ubuntu -c "aws configure set aws_access_key_id ${CTFUserAccessKey}"
@@ -298,7 +298,10 @@ Resources:
           su ubuntu -c "aws configure set region ${AWS::Region}"
 
           # Set an environment variable for default user that points to the user_flag API gateway.
-          su ubuntu -c "echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/user_flag' >> ~/.profile"
+          su ubuntu -c "echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/user_flag' >> ~/.bashrc"
+
+          # Add instruction on how to get the flag in this instance.
+          touch /tmp/ctf-readme.txt
 
 Outputs:
   InstanceId:
