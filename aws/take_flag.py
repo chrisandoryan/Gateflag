@@ -13,12 +13,12 @@ aws configure set aws_secret_access_key <ACCESS_KEY_SECRET>
 
 Test Invoke API Gateway:
 aws apigateway test-invoke-method \
-  --rest-api-id j4oijqh4zc \
-  --resource-id dd82w1 \
+  --rest-api-id t06u8yy3m4 \
+  --resource-id wyps6g \
   --http-method GET \
   --output json
 
-aws apigateway get-resources --rest-api-id j4oijqh4zc
+aws apigateway get-resources --rest-api-id t06u8yy3m4
 """
 
 try:
