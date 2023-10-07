@@ -2,8 +2,8 @@
 """
 Provides a simple Python wrapper for invoking an API Gateway endpoint using IAM signed requests.
 Example:
-   python3 take_flag.py https://eega5aaqa1.execute-api.ap-southeast-1.amazonaws.com/stable/user_flag
-   python3 take_flag.py https://eega5aaqa1.execute-api.ap-southeast-1.amazonaws.com/stable/root_flag
+   python3 take_flag.py https://ydkmhri03l.execute-api.ap-southeast-1.amazonaws.com/stable/user_flag
+   python3 take_flag.py https://ydkmhri03l.execute-api.ap-southeast-1.amazonaws.com/stable/root_flag
 """
 
 try:
@@ -14,6 +14,7 @@ except ImportError:
 
 import re
 import sys
+import os
 
 import requests
 from boto3 import Session
@@ -38,15 +39,19 @@ def signing_headers(method, url_string, body):
 
 
 if __name__ == "__main__":
-    method = "GET"
-    url = sys.argv[1]
+    METHOD = "GET"
+
+    if len(sys.argv) <= 1:
+        url = os.getenv('FLAG_GATEWAY')
+    else:
+        url = sys.argv[1]
 
     if not sys.stdin.isatty():
         body = sys.stdin.read()
     else:
         body = None
 
-    r = requests.get(url, headers=signing_headers(method, url, body))
+    r = requests.get(url, headers=signing_headers(METHOD, url, body))
     print(r.content.decode("utf-8"))
 
 
