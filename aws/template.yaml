@@ -18,6 +18,11 @@ Parameters:
     Type: String
     Default: ami-0df7a207adb9748c7
     Description: The AMI ID for CTF challenge machine that will be created using EC2.
+  EC2KeyPair:
+    Type: String
+    Default: siahaan-macbookair
+    Description: The KeyPair configuration to connect to EC2 instances.
+    
 Resources:
   # API Gateway Establishment. 
   RestApi:
@@ -159,7 +164,7 @@ Resources:
               # - apigateway:*
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/root_flag
   
-  # CTF users creation
+  # IAM Users Configuration
   CTFUser:
     Type: AWS::IAM::User
     Properties:
@@ -181,26 +186,102 @@ Resources:
     Properties:
       UserName: !Ref CTFRoot
   
-  # EC2 establishment
+  # EC2 Networking Establishment
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: false
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: Flagtake
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Flagtake
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: Flagtake | Public
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  EC2Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: Flagtake
+  EC2SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref EC2Subnet
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Flagtake CTFBox Security Group
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+      Tags:
+        - Key: Name
+          Value: Flagtake
+  
+  # EC2 Instance Establishment
   CTFMachineEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      KeyName: siahaan-macbookair
+      KeyName: !Ref EC2KeyPair
+      SecurityGroupIds:
+        - !GetAtt EC2SecurityGroup.GroupId
+      SubnetId: !Ref EC2Subnet
       ImageId: !Ref CTFMachineAMI
       Tags:
         - Key: Name
-          Value: CTFBox-FlagFetcher
+          Value: Flagtake
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           apt update -y
-          apt install -y aws-cli
+          apt install -y awscli python3-pip
+          pip3 install boto3 requests
 
           # Configure AWS CLI with the access key ID and secret access key
           aws configure set aws_access_key_id ${CTFUserAccessKey}
           aws configure set aws_secret_access_key ${CTFUserAccessKey.SecretAccessKey}
           aws configure set region ${AWS::Region}
+
 Outputs:
   InstanceId:
     Value: !Ref CTFMachineEC2Instance
