@@ -5,15 +5,19 @@ Parameters:
   EnvironmentName:
     Type: String
     Default: flag_fetcher_api
-    Description: "A friendly environment name that will be used for namespacing all cluster resources."
+    Description: A friendly environment name that will be used for namespacing all cluster resources.
   PrivateDNSNamespaceName:
     Type: String
     Default: flag_fetcher_dns
-    Description: "The private DNS name that identifies the name that you want to use to locate your resources."
+    Description: The private DNS name that identifies the name that you want to use to locate your resources.
   FlagServerHost:
     Type: String
     Default: https://api.jsonbin.io/v3/qs/652140670574da7622b5a348
-    Description: "The URL of host server that will emit the CTF flag upon request."
+    Description: The URL of host server that will emit the CTF flag upon request.
+  CTFMachineAMI:
+    Type: String
+    Default: ami-0df7a207adb9748c7
+    Description: The AMI ID for CTF challenge machine that will be created using EC2.
 Resources:
   # API Gateway Establishment. 
   RestApi:
@@ -176,6 +180,31 @@ Resources:
     Type: AWS::IAM::AccessKey
     Properties:
       UserName: !Ref CTFRoot
+  
+  # EC2 establishment
+  CTFMachineEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      KeyName: siahaan-macbookair
+      ImageId: !Ref CTFMachineAMI
+      Tags:
+        - Key: Name
+          Value: CTFBox-FlagFetcher
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt update -y
+          apt install -y aws-cli
+
+          # Configure AWS CLI with the access key ID and secret access key
+          aws configure set aws_access_key_id ${CTFUserAccessKey}
+          aws configure set aws_secret_access_key ${CTFUserAccessKey.SecretAccessKey}
+          aws configure set region ${AWS::Region}
+Outputs:
+  InstanceId:
+    Value: !Ref CTFMachineEC2Instance
+    Description: Instance ID of the created EC2 instance
 
 
 

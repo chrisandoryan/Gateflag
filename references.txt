@@ -4,7 +4,7 @@ AWS:
 
 
 TODO:
-- add EC2 setup to CloudFormation
+- add EC2 setup to CloudFormation OK
 - add IAM user creation for CTFUser and CTFRoot to CloudFormation OK
 - auto-configure separate AWS CLI creds to EC2 local user and local root
 
