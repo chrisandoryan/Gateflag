@@ -37,5 +37,5 @@ aws cloudformation deploy --template-file ./aws/template.yaml --stack-name gatef
 Before you can use AWS CLI to deploy this project using CloudFormation, you need to install CLI on your machine and configure it using your credentials (access key/secret key). See [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 
 ## Future Improvements
-- Implements Access Key / Secret Key rotation with CloudWatch and Lambda function.
+- Implement Access Key / Secret Key rotation with CloudWatch and Lambda function.
 - 
