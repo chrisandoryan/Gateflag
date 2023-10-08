@@ -280,13 +280,14 @@ Resources:
           Value: Gateflag
       UserData:
         Fn::Base64: !Sub |
-          #!/bin/bash -x
+          #!/bin/bash -xe
           apt update -y
           apt install -y awscli python3-pip
           pip3 install boto3 requests
 
           # Download and configure the flag-taking script
-          curl ${FlagTakerScript} -o /usr/local/bin/takeflag 2&1>0 && chmod a+x /usr/local/bin/takeflag
+          curl ${FlagTakerScript} -o /usr/local/bin/takeflag
+          chmod a+x /usr/local/bin/takeflag
 
           # Configure AWS CLI with the access key ID and secret access key for CTFRoot
           # Note: shell execution from the instance's UserData is always running as root privilege by default
@@ -309,14 +310,14 @@ Resources:
           echo "Use /usr/local/bin/takeflag to get the user/root flag." > /tmp/CTF-README.txt
 
 Outputs:
-  InstanceId:
+  CTFMachineInstanceId:
     Value: !Ref CTFMachineEC2Instance
-    Description: Instance ID of the created EC2 instance
-  PublicIp:
+    Description: Instance ID of the CTF EC2 instance
+  CTFMachinePublicIp:
     Value: !GetAtt CTFMachineEC2Instance.PublicIp
-    Description: Public IP address of the created EC2 instance
-  RestApiUrl:
-    Description: URL of the REST API with the stage
+    Description: Public IP address of the CTF EC2 instance
+  GateflagRestApiUrl:
+    Description: URL of the Gateflag REST API
     Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}"
 
 

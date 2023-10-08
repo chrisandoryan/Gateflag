@@ -14,6 +14,8 @@ The stack consists of:
 ## How It Works
 Instead of directly update the value of the user/root flag inside the CTF instance on every ticks, **Gateflag** sets up two specific API endpoints that the players can call to get their user/root flag. These endpoints are protected with IAM and ACL policies, so the endpoint that emits **root flag** can only be called by the **root user**, and endpoint that emits **user flag** can only be called by the **normal user**.
 
+![Takeflag Binary](./documentation/takeflag_binary.png "Get flag in Gateflag")
+
 ### POV: CTF Administrator
 As the administrator, TBA.
 
