@@ -24,6 +24,18 @@ As the administrator, TBA.
 ### POV: CTF Participants
 As a participant, after *pwning* your way into the machine, you just have to execute `/usr/local/bin/takeflag` binary. You'll get the flag depending on what user you're currently on: if you're **root**, you'll get the **root flag**, and vice versa.
 
+## How to Deploy
+Clone the repository:
+```
+git clone https://github.com/chrisandoryan/Gateflag.git
+cd Gateflag/
+```
+Deploy using AWS CLI:
+```
+aws cloudformation deploy --template-file ./aws/template.yaml --stack-name gateflag-stack
+```
+Before you can use AWS CLI to deploy this project using CloudFormation, you need to install CLI on your machine and configure it using your credentials (access key/secret key). See [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+
 ## Future Improvements
 - Implements Access Key / Secret Key rotation with CloudWatch and Lambda function.
 - 
