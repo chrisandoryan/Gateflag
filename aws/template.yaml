@@ -118,6 +118,83 @@ Resources:
           - type
           - generated_at
 
+  # Lambda Establishment for Key Rotation
+  RotateIAMKeysLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: rotate-iam-keys-lambda
+      Runtime: nodejs14.x
+      Handler: index.handler
+      Timeout: 60
+      Role: !GetAtt RotateIAMKeysLambdaRole.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaIAMPolicy
+      CodeUri: . 
+      InlineCode: |
+        const AWS = require('aws-sdk');
+        const iam = new AWS.IAM();
+
+        const userMapping = {
+          "CTFUser": "ubuntu",
+          "CTFRoot": "root"
+        }
+
+        async function updateCliConfiguration(instanceId, username, accessKey, secretKey) {
+            const cliConfig = `[${username}]\naws_access_key_id=${accessKey}\naws_secret_access_key=${secretKey}\nregion=your-aws-region\noutput=json`;
+
+            await ssm.putParameter({
+                Name: `/cli-config/${username}`,
+                Value: cliConfig,
+                Type: 'String',
+                Overwrite: true,
+            }).promise();
+
+            const command = `aws ssm start-session --target ${instanceId} --document-name AWS-RunShellScript --parameters commands=["echo '${cliConfig}' > ~/.aws/config"]`;
+            await ssm.sendCommand({
+                DocumentName: 'AWS-RunShellScript',
+                Targets: [{ Key: 'instanceids', Values: [instanceId] }],
+                Parameters: { commands: [command] },
+            }).promise();
+        }
+
+        exports.handler = async (event, context) => {
+            try {
+                const { Users } = await iam.listUsers().promise();
+                const ctfUsers = Users.filter(user => user.UserName.startsWith('CTF'));
+
+                for (const user of ctfUsers) {
+                    const { AccessKeyMetadata } = await iam.listAccessKeys({ UserName: user.UserName }).promise();
+
+                    if (AccessKeyMetadata.length > 0) {
+                        const currentAccessKeyId = AccessKeyMetadata[0].AccessKeyId;
+                        const newKey = await iam.createAccessKey({ UserName: user.UserName }).promise();
+
+                        # let instanceId = "GET_INSTANCE_ID_HERE"
+                        # await updateCliConfiguration(instanceId, userMapping[user.UserName], newKey.AccessKeyId, newKey.SecretAccessKey)
+
+                        await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
+                        console.log(`Access key rotated for user: ${user.UserName}`);
+                    } else {
+                        console.log(`No access keys found for user: ${user.UserName}`);
+                    }
+                }
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({ message: 'Access key rotation completed' }),
+                };
+
+            } catch (error) {
+                console.error('Error:', error);
+
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({ error: 'Internal server error' }),
+                };
+            }
+        };
+              
   # IAM and Policy Establishment.
   CTFUserRole:
     Type: AWS::IAM::Role
@@ -157,7 +234,6 @@ Resources:
           - Effect: Allow
             Action: 
               - execute-api:Invoke
-              # - apigateway:*
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/user_flag
   CTFRootGetFlagThroughAPIGateway:
     Type: AWS::IAM::ManagedPolicy
@@ -169,8 +245,30 @@ Resources:
           - Effect: Allow
             Action: 
               - execute-api:Invoke
-              # - apigateway:*
             Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/root_flag
+  RotateIAMKeysLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: rotate-iam-keys-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:ListUsers
+                  - iam:ListAccessKeys
+                  - iam:CreateAccessKey
+                  - iam:DeleteAccessKey
+                Resource: '*'
   
   # IAM Users Configuration
   CTFUser:

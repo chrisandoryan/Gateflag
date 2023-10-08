@@ -2,6 +2,10 @@ AWS:
 - https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html
 - https://gist.github.com/toddlers/7c324e39c2ef3058d6c50b895076b16f
 
+Key Rotation:
+- https://aws.amazon.com/blogs/security/how-to-use-aws-secrets-manager-securely-store-rotate-ssh-key-pairs/
+- https://gist.github.com/lrakai/18303e1fc1fb1d8635cc20eee73a06a0
+
 
 TODO:
 - add EC2 setup to CloudFormation OK
