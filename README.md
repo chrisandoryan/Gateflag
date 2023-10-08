@@ -1,5 +1,5 @@
 # Gateflag for CTF A&D
-**Gateflag** (practically read as *getflag*) is an IaaC-enabled project that allows easy deployment of Attack & Defense CTF instances with **user/root flag** obtained from IAM-controlled API endpoints. 
+**Gateflag** (practically read as *getflag*) is an IaC-enabled project that allows easy deployment of Attack & Defense CTF instances with **user/root flag** obtained from IAM-controlled API endpoints. 
 
 This allows for a subtle tick implementation: easily rotates user/root flag between ticks. 
 
