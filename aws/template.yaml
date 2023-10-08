@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: AWS CloudFormation template for Flagtake deployment.
+Description: AWS CloudFormation template for Gateflag deployment.
 Parameters:
   EnvironmentName:
     Type: String
-    Default: Flagtake
+    Default: Gateflag
     Description: A friendly environment name that will be used for namespacing all cluster resources.
   PrivateDNSNamespaceName:
     Type: String
@@ -12,7 +12,7 @@ Parameters:
     Description: The private DNS name that identifies the name that you want to use to locate your resources.
   FlagServerHost:
     Type: String
-    Default: https://api.jsonbin.io/v3/qs/652140670574da7622b5a348
+    Default: https://flaggy.free.beeceptor.com
     Description: The URL of host server that will emit the CTF flag upon request.
   CTFMachineAMI:
     Type: String
@@ -24,8 +24,9 @@ Parameters:
     Description: The KeyPair configuration to connect to EC2 instances.
   FlagTakerScript:
     Type: String
-    Default: https://raw.githubusercontent.com/chrisandoryan/Flagtake/main/aws/take_flag.py
-    Description: Script that automates the flag-taking process inside the EC2 CTF instance.
+    Default: https://raw.githubusercontent.com/chrisandoryan/Gateflag/main/aws/take_flag.py
+    Description: Script that automates the flag-taking process inside EC2 CTF instances.
+
 Resources:
   # API Gateway Establishment. 
   RestApi:
@@ -50,12 +51,14 @@ Resources:
     Properties:
       AuthorizationType: AWS_IAM
       HttpMethod: GET
-      ResourceId: !Ref RestApiRootFlagResource
+      ResourceId: !Ref RestApiUserFlagResource
       RestApiId: !Ref RestApi
       Integration:
         IntegrationHttpMethod: GET
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/user_flag
+        IntegrationResponses:
+          - StatusCode: 200
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
@@ -65,12 +68,14 @@ Resources:
     Properties:
       AuthorizationType: AWS_IAM
       HttpMethod: GET
-      ResourceId: !Ref RestApiUserFlagResource
+      ResourceId: !Ref RestApiRootFlagResource
       RestApiId: !Ref RestApi
       Integration:
         IntegrationHttpMethod: GET
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/root_flag
+        IntegrationResponses:
+          - StatusCode: 200
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
@@ -82,14 +87,14 @@ Resources:
       - RestApiRootFlagMethod
     Properties:
       RestApiId: !Ref RestApi
-      Description: Deployment of Flagtake.
+      Description: Deployment of Gateflag.
   RestApiStage:
     Type: AWS::ApiGateway::Stage
     Properties:
       StageName: stable
       RestApiId: !Ref RestApi
       DeploymentId: !Ref RestApiDeployment
-      Description: Stage marked as stable for Flagtake deployment.
+      Description: Stage marked as stable for Gateflag deployment.
   FlagModel:
     Type: AWS::ApiGateway::Model
     Properties:
@@ -199,13 +204,13 @@ Resources:
       InstanceTenancy: default
       Tags:
         - Key: Name
-          Value: Flagtake
+          Value: Gateflag
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: Flagtake
+          Value: Gateflag
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -217,7 +222,7 @@ Resources:
       VpcId: !Ref Vpc
       Tags:
         - Key: Name
-          Value: Flagtake | Public
+          Value: Gateflag | Public
   PublicRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -232,7 +237,7 @@ Resources:
       VpcId: !Ref Vpc
       Tags:
         - Key: Name
-          Value: Flagtake
+          Value: Gateflag
   EC2SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -241,7 +246,7 @@ Resources:
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for Flagtake CTFBox 
+      GroupDescription: Security Group for Gateflag CTFBox 
       VpcId: !Ref Vpc
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
@@ -258,7 +263,7 @@ Resources:
           ToPort: 22
       Tags:
         - Key: Name
-          Value: Flagtake
+          Value: Gateflag
   
   # EC2 Instance Establishment
   CTFMachineEC2Instance:
@@ -272,7 +277,7 @@ Resources:
       ImageId: !Ref CTFMachineAMI
       Tags:
         - Key: Name
-          Value: Flagtake
+          Value: Gateflag
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -x
@@ -301,7 +306,7 @@ Resources:
           su ubuntu -c "echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/user_flag' >> ~/.bashrc"
 
           # Add instruction on how to get the flag in this instance.
-          touch /tmp/ctf-readme.txt
+          echo "Use /usr/local/bin/takeflag to get the user/root flag." > /tmp/CTF-README.txt
 
 Outputs:
   InstanceId:
