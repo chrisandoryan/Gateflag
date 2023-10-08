@@ -5,7 +5,7 @@ This allows for a subtle tick implementation: easily rotates user/root flag betw
 
 ## Cloud Environments
 Currently built for AWS environment with CloudFormation stack.
-The stack consists of:
+The so-called stack consists of:
 - AWS API Gateway (REST)
 - AWS EC2
 - AWS IAM & Managed Policies
