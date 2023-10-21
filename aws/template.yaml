@@ -22,6 +22,10 @@ Parameters:
     Type: String
     Default: https://raw.githubusercontent.com/chrisandoryan/Gateflag/main/aws/take_flag.py
     Description: Script that automates the flag-taking process inside EC2 CTF instances.
+  CTFBoxLowPrivilegeUser:
+    Type: String
+    Default: ubuntu
+    Description: The name of low-privilege user inside Gateflag CTFBox.
 
 Resources:
   # API Gateway Establishment. 
@@ -50,11 +54,14 @@ Resources:
       ResourceId: !Ref RestApiUserFlagResource
       RestApiId: !Ref RestApi
       Integration:
-        IntegrationHttpMethod: GET
+        IntegrationHttpMethod: POST
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/user_flag
         IntegrationResponses:
           - StatusCode: 200
+        RequestParameters:
+          integration.request.header.x-source-ip: context.identity.sourceIp
+          integration.request.header.x-invoker-account-id: context.identity.accountId
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
@@ -67,11 +74,14 @@ Resources:
       ResourceId: !Ref RestApiRootFlagResource
       RestApiId: !Ref RestApi
       Integration:
-        IntegrationHttpMethod: GET
+        IntegrationHttpMethod: POST
         Type: HTTP
         Uri: !Sub ${FlagServerHost}/root_flag
         IntegrationResponses:
           - StatusCode: 200
+        RequestParameters:
+          integration.request.header.x-source-ip: context.identity.sourceIp
+          integration.request.header.x-invoker-account-id: context.identity.accountId
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
@@ -118,7 +128,7 @@ Resources:
   RotateIAMKeysLambda:
     Type: 'AWS::Serverless::Function'
     Properties:
-      FunctionName: rotate-iam-keys-lambda
+      FunctionName: RotateIAMKeysLambda
       Runtime: nodejs14.x
       Handler: index.handler
       Timeout: 60
@@ -130,11 +140,8 @@ Resources:
       InlineCode: |
         const AWS = require('aws-sdk');
         const iam = new AWS.IAM();
-
-        const userMapping = {
-          "CTFUser": "ubuntu",
-          "CTFRoot": "root"
-        }
+        const ec2 = new AWS.EC2();
+        const ssm = new AWS.SSM();
 
         async function updateCliConfiguration(instanceId, username, accessKey, secretKey) {
             const cliConfig = `[${username}]\naws_access_key_id=${accessKey}\naws_secret_access_key=${secretKey}\nregion=your-aws-region\noutput=json`;
@@ -157,10 +164,29 @@ Resources:
         exports.handler = async (event, context) => {
             try {
                 const { Users } = await iam.listUsers().promise();
-                const ctfUsers = Users.filter(user => user.UserName.startsWith('CTF'));
 
-                for (const user of ctfUsers) {
+                for (const user of Users) {
                     console.log(user);
+                    
+                    const userTags = await iam.listUserTags({ UserName: user.UserName }).promise();
+                    console.log(userTags);
+
+                    if (!userTags.Tags.some(tag => tag.Key === 'ManagedBy' && tag.Value === 'Gateflag')) {
+                        console.log(`The user: ${user.UserName} is not managed by Gateflag and is skipped.`)
+                        continue;
+                    }
+                    
+                    var gateflagSpecificName = userTags.Tags.find(item => item.Key === 'GateflagSpecificName');
+                    gateflagSpecificName = gateflagSpecificName ? gateflagSpecificName.Value : undefined;
+                    
+                    var boxLocalUser = userTags.Tags.find(item => item.Key === 'BoxLocalUserName');
+                    boxLocalUser = boxLocalUser ? boxLocalUser.Value : undefined;
+                    
+                    if (!gateflagSpecificName || !boxLocalUser) {
+                        console.log(`Failed to get some box information from the tags, hence is skipped.`)
+                        continue;
+                    }
+                    
                     const { AccessKeyMetadata } = await iam.listAccessKeys({ UserName: user.UserName }).promise();
 
                     if (AccessKeyMetadata.length > 0) {
@@ -169,61 +195,53 @@ Resources:
                             const currentAccessKeyId = AccessKeyMetadata[1].AccessKeyId;
                             await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
                             
-                            console.log(`There are already two access keys for user: ${user.UserName}. One has been deleted successfully.`);
+                            console.log(`There are already two access keys for user: ${user.UserName}. One of the access key is deleted successfully.`);
                         }
                         
                         const currentAccessKeyId = AccessKeyMetadata[0].AccessKeyId;
                         const newKey = await iam.createAccessKey({ UserName: user.UserName }).promise();
                         
-                        const sts = new AWS.STS();
-                        const assumedRole = await sts.assumeRole({
-                          RoleArn: user.Arn,
-                          RoleSessionName: 'key-rotator-assumedrole-session'
+                        const response = await ec2.describeInstances({
+                            Filters: [
+                                {
+                                    Name: 'tag:ManagedBy',
+                                    Values: ['Gateflag']
+                                },
+                                {
+                                    Name: 'tag:Name',
+                                    Values: [gateflagSpecificName]
+                                }
+                            ]
                         }).promise();
-                        
-                        const credentials = {
-                          accessKeyId: assumedRole.Credentials.AccessKeyId,
-                          secretAccessKey: assumedRole.Credentials.SecretAccessKey,
-                          sessionToken: assumedRole.Credentials.SessionToken
-                        };
-                        
-                        const ec2 = new AWS.EC2({ credentials });
-                        
-                        const params = {
-                        Filters: [
-                            {
-                              Name: 'tag:CreatedBy',
-                              Values: [user.UserName]
-                            }
-                          ]
-                        };
-                        
-                        const instances = await ec2.describeInstances(params).promise();
-                        
-                        const instanceIds = [];
+                
+                        const instances = response.Reservations.flatMap(reservation =>
+                            reservation.Instances.map(instance => {
+                                return {
+                                    InstanceId: instance.InstanceId,
+                                    InstanceType: instance.InstanceType,
+                                }  
+                            })
+                        );
 
-                        instances.Reservations.forEach(reservation => {
-                          reservation.Instances.forEach(instance => {
-                                console.log("Instance: ", instance)
-                                instanceIds.push(instance.InstanceId);
-                          });
-                        });
+                        // Rotate the access keys inside EC2 using AWS Systems Manager (SSM)
+                        for (instance of instances) {
+                            console.log(`Rotating access keys in instance: ${instance.InstanceId} with new keys: ${newKey.AccessKeyId} & ${newKey.SecretAccessKey}`);
+                            await updateCliConfiguration(instance.InstanceId, boxLocalUser, newKey.AccessKeyId, newKey.SecretAccessKey);
+                        }
                         
-                        console.log('EC2 Instances:', instanceIds);
-
-                        // let instanceId = "GET_INSTANCE_ID_HERE"
-                        // await updateCliConfiguration(instanceId, userMapping[user.UserName], newKey.AccessKeyId, newKey.SecretAccessKey)
-
                         await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
                         console.log(`Access key rotated for user: ${user.UserName}`);
+                        
                     } else {
+                        
                         console.log(`No access keys found for user: ${user.UserName}`);
+                        
                     }
                 }
 
                 return {
                     statusCode: 200,
-                    body: JSON.stringify({ message: 'Access key rotation completed' }),
+                    body: JSON.stringify({ message: 'Access key rotation completed.' }),
                 };
 
             } catch (error) {
@@ -235,6 +253,7 @@ Resources:
                 };
             }
         };
+
       
   # IAM and Policy Establishment.
   CTFUserRole:
@@ -309,33 +328,54 @@ Resources:
                   - iam:ListAccessKeys
                   - iam:CreateAccessKey
                   - iam:DeleteAccessKey
+                  - iam:ListUserTags
                   - sts:AssumeRole
+                  - ec2:DescribeInstances
+                  - ssm:PutParameter
+                  - ssm:SendCommand
+                  - ssm:StartSession
+                  - ssm:AssumeRole
                 Resource: '*'
-              - Effect: Allow
-                Action: sts:AssumeRole
-                Resource: '*'
-  
+              
   # IAM Users Configuration
-  CTFUser:
+  CTFUserTeam01:
     Type: AWS::IAM::User
     Properties:
-      UserName: CTFUser
+      UserName: CTFUserTeam01
+      Tags:
+        - Key: Name
+          Value: Team01
+        - Key: GateflagSpecificName
+          Value: Team01
+        - Key: BoxLocalUserName
+          Value: !Ref CTFBoxLowPrivilegeUser
+        - Key: ManagedBy
+          Value: Gateflag
       ManagedPolicyArns:
         - !Ref CTFUserGetFlagThroughAPIGateway
-  CTFRoot:
+  CTFRootTeam01:
     Type: AWS::IAM::User
     Properties:
-      UserName: CTFRoot
+      UserName: CTFRootTeam01
+      Tags:
+        - Key: Name
+          Value: Team01
+        - Key: GateflagSpecificName
+          Value: Team01
+        - Key: BoxLocalUserName
+          Value: root
+        - Key: ManagedBy
+          Value: Gateflag
       ManagedPolicyArns:
         - !Ref CTFRootGetFlagThroughAPIGateway
   CTFUserAccessKey:
     Type: AWS::IAM::AccessKey
     Properties:
-      UserName: !Ref CTFUser
+      UserName: !Ref CTFUserTeam01
   CTFRootAccessKey:
     Type: AWS::IAM::AccessKey
     Properties:
-      UserName: !Ref CTFRoot
+      UserName: !Ref CTFRootTeam01
   
   # EC2 Networking Establishment
   Vpc:
@@ -346,13 +386,13 @@ Resources:
       EnableDnsHostnames: false
       InstanceTenancy: default
       Tags:
-        - Key: Name
+        - Key: ManagedBy
           Value: Gateflag
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
-        - Key: Name
+        - Key: ManagedBy
           Value: Gateflag
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -364,8 +404,8 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       Tags:
-        - Key: Name
-          Value: Gateflag | Public
+        - Key: ManagedBy
+          Value: Gateflag
   PublicRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -379,7 +419,7 @@ Resources:
       MapPublicIpOnLaunch: true
       VpcId: !Ref Vpc
       Tags:
-        - Key: Name
+        - Key: ManagedBy
           Value: Gateflag
   EC2SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -405,24 +445,49 @@ Resources:
           FromPort: 22
           ToPort: 22
       Tags:
-        - Key: Name
+        - Key: ManagedBy
           Value: Gateflag
-  
+  EC2SSMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: ["ec2.amazonaws.com"]
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref EC2SSMRole
+
   # EC2 Instance Establishment
   CTFMachineEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
       KeyName: !Ref EC2KeyPair
+      IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
         - !GetAtt EC2SecurityGroup.GroupId
       SubnetId: !Ref EC2Subnet
       ImageId: !Ref CTFMachineAMI
       Tags:
+        # This tag is required to perform access keys rotation according to the team that this box belongs to (see lambda: RotateIAMKeysLambda).
         - Key: Name
+          Value: Team01
+        # This tag indicates that the box is Gateflag-managed so Gateflag could perform its automated managements.
+        - Key: ManagedBy 
           Value: Gateflag
       UserData:
-        Fn::Base64: !Sub |
+        Fn::Base64: !Sub |          
           #!/bin/bash -xe
           apt update -y
           apt install -y awscli python3-pip
@@ -442,15 +507,23 @@ Resources:
           echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/root_flag' >> ~/.bashrc
 
           # Configure AWS CLI with the access key ID and secret access key for CTFUser
-          su ubuntu -c "aws configure set aws_access_key_id ${CTFUserAccessKey}"
-          su ubuntu -c "aws configure set aws_secret_access_key ${CTFUserAccessKey.SecretAccessKey}"
-          su ubuntu -c "aws configure set region ${AWS::Region}"
+          su ${CTFBoxLowPrivilegeUser} -c "aws configure set aws_access_key_id ${CTFUserAccessKey}"
+          su ${CTFBoxLowPrivilegeUser} -c "aws configure set aws_secret_access_key ${CTFUserAccessKey.SecretAccessKey}"
+          su ${CTFBoxLowPrivilegeUser} -c "aws configure set region ${AWS::Region}"
 
           # Set an environment variable for default user that points to the user_flag API gateway.
-          su ubuntu -c "echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/user_flag' >> ~/.bashrc"
+          su ${CTFBoxLowPrivilegeUser} -c "echo 'export FLAG_GATEWAY=https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}/user_flag' >> ~/.bashrc"
 
           # Add instruction on how to get the flag in this instance.
           echo "Use /usr/local/bin/takeflag to get the user/root flag." > /tmp/CTF-README.txt
+
+          # Install AWS SSM Agent
+          mkdir /tmp/ssm
+          cd /tmp/ssm
+          wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+          dpkg -i amazon-ssm-agent.deb
+          systemctl enable amazon-ssm-agent
+          systemctl start amazon-ssm-agent
 
 Outputs:
   CTFMachineInstanceId:
