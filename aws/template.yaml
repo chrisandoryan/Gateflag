@@ -6,10 +6,6 @@ Parameters:
     Type: String
     Default: Gateflag
     Description: A friendly environment name that will be used for namespacing all cluster resources.
-  PrivateDNSNamespaceName:
-    Type: String
-    Default: flag_fetcher_dns
-    Description: The private DNS name that identifies the name that you want to use to locate your resources.
   FlagServerHost:
     Type: String
     Default: https://flaggy.free.beeceptor.com
@@ -164,14 +160,59 @@ Resources:
                 const ctfUsers = Users.filter(user => user.UserName.startsWith('CTF'));
 
                 for (const user of ctfUsers) {
+                    console.log(user);
                     const { AccessKeyMetadata } = await iam.listAccessKeys({ UserName: user.UserName }).promise();
 
                     if (AccessKeyMetadata.length > 0) {
+                        
+                        if (AccessKeyMetadata.length == 2) {
+                            const currentAccessKeyId = AccessKeyMetadata[1].AccessKeyId;
+                            await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
+                            
+                            console.log(`There are already two access keys for user: ${user.UserName}. One has been deleted successfully.`);
+                        }
+                        
                         const currentAccessKeyId = AccessKeyMetadata[0].AccessKeyId;
                         const newKey = await iam.createAccessKey({ UserName: user.UserName }).promise();
+                        
+                        const sts = new AWS.STS();
+                        const assumedRole = await sts.assumeRole({
+                          RoleArn: user.Arn,
+                          RoleSessionName: 'key-rotator-assumedrole-session'
+                        }).promise();
+                        
+                        const credentials = {
+                          accessKeyId: assumedRole.Credentials.AccessKeyId,
+                          secretAccessKey: assumedRole.Credentials.SecretAccessKey,
+                          sessionToken: assumedRole.Credentials.SessionToken
+                        };
+                        
+                        const ec2 = new AWS.EC2({ credentials });
+                        
+                        const params = {
+                        Filters: [
+                            {
+                              Name: 'tag:CreatedBy',
+                              Values: [user.UserName]
+                            }
+                          ]
+                        };
+                        
+                        const instances = await ec2.describeInstances(params).promise();
+                        
+                        const instanceIds = [];
 
-                        # let instanceId = "GET_INSTANCE_ID_HERE"
-                        # await updateCliConfiguration(instanceId, userMapping[user.UserName], newKey.AccessKeyId, newKey.SecretAccessKey)
+                        instances.Reservations.forEach(reservation => {
+                          reservation.Instances.forEach(instance => {
+                                console.log("Instance: ", instance)
+                                instanceIds.push(instance.InstanceId);
+                          });
+                        });
+                        
+                        console.log('EC2 Instances:', instanceIds);
+
+                        // let instanceId = "GET_INSTANCE_ID_HERE"
+                        // await updateCliConfiguration(instanceId, userMapping[user.UserName], newKey.AccessKeyId, newKey.SecretAccessKey)
 
                         await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
                         console.log(`Access key rotated for user: ${user.UserName}`);
@@ -194,7 +235,7 @@ Resources:
                 };
             }
         };
-              
+      
   # IAM and Policy Establishment.
   CTFUserRole:
     Type: AWS::IAM::Role
@@ -249,7 +290,7 @@ Resources:
   RotateIAMKeysLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: rotate-iam-keys-lambda-role
+      RoleName: RotateIAMKeysLambdaRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -268,6 +309,10 @@ Resources:
                   - iam:ListAccessKeys
                   - iam:CreateAccessKey
                   - iam:DeleteAccessKey
+                  - sts:AssumeRole
+                Resource: '*'
+              - Effect: Allow
+                Action: sts:AssumeRole
                 Resource: '*'
   
   # IAM Users Configuration
