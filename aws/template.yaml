@@ -267,16 +267,23 @@ Resources:
                 };
             }
         };
-  RotateIAMKeysCloudWatchEventRule:
-    Type: 'AWS::Events::Rule'
+  RotateIAMKeysEventBridgeRule:
+    Type: AWS::Events::Rule
     Properties:
       Description: 'Run RotateIAMKeysLambda fuction every N minutes'
       ScheduleExpression: !Sub 'rate(${CTFTickDuration} minutes)'
-      State: 'ENABLED'
+      State: ENABLED
       Targets:
         - Arn: !GetAtt RotateIAMKeysLambda.Arn
-          Id: 'RotateIAMKeysLambda'
-
+          Id: RotateIAMKeysLambda
+  RotateIAMKeysEventBridgePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RotateIAMKeysLambda
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt RotateIAMKeysEventBridgeRule.Arn
+  
   # IAM and Policy Establishment.
   CTFUserRole:
     Type: AWS::IAM::Role
@@ -351,12 +358,18 @@ Resources:
                   - iam:CreateAccessKey
                   - iam:DeleteAccessKey
                   - iam:ListUserTags
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - sts:AssumeRole
                   - ec2:DescribeInstances
                   - ssm:PutParameter
                   - ssm:SendCommand
                   - ssm:StartSession
                   - ssm:AssumeRole
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - lambda:InvokeFunction
                 Resource: '*'
               - Effect: 'Allow'
