@@ -123,7 +123,41 @@ Resources:
           - flag
           - type
           - generated_at
-
+  
+  # SSM Establishment for Key Rotation
+  KeyRotationSSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Content:
+        schemaVersion: '0.3'
+        description: 'Run a script on Linux instances.'
+        parameters:
+          AutomationAssumeRole:
+            type: String
+            description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+            default: ''
+          commands:
+            type: String
+            description: "(Required) The commands to run or the path to an existing script on the instance."
+            default: 'echo Hello World'
+          InstanceId:
+            type: String
+            description: "(Required) The instance ID you want to run commands on."
+            default: ''
+        mainSteps:
+        - name: sayHello
+          action: 'aws:runCommand'
+          inputs:
+            DocumentName: AWS-RunShellScript
+            Parameters:
+              InstanceIds:
+              - '{{InstanceId}}'
+              commands:
+              - "{{ commands }}"
+      DocumentFormat: YAML
+      DocumentType: Automation
+      Name: 'CFN_runbook_example'
+  
   # Lambda Establishment for Key Rotation
   RotateIAMKeysLambda:
     Type: 'AWS::Serverless::Function'
@@ -144,20 +178,12 @@ Resources:
         const ssm = new AWS.SSM();
 
         async function updateCliConfiguration(instanceId, username, accessKey, secretKey) {
-            const cliConfig = `[${username}]\naws_access_key_id=${accessKey}\naws_secret_access_key=${secretKey}\nregion=your-aws-region\noutput=json`;
-
-            await ssm.putParameter({
-                Name: `/cli-config/${username}`,
-                Value: cliConfig,
-                Type: 'String',
-                Overwrite: true,
-            }).promise();
-
-            const command = `aws ssm start-session --target ${instanceId} --document-name AWS-RunShellScript --parameters commands=["echo '${cliConfig}' > ~/.aws/config"]`;
             await ssm.sendCommand({
-                DocumentName: 'AWS-RunShellScript',
-                Targets: [{ Key: 'instanceids', Values: [instanceId] }],
-                Parameters: { commands: [command] },
+              InstanceIds: [instanceId],
+              DocumentName: 'KeyRotatorSSMDocumentForLambda',
+              Parameters: {
+                commands: [accessKey, secretKey, username],
+              },
             }).promise();
         }
 
@@ -183,7 +209,7 @@ Resources:
                     boxLocalUser = boxLocalUser ? boxLocalUser.Value : undefined;
                     
                     if (!gateflagSpecificName || !boxLocalUser) {
-                        console.log(`Failed to get some box information from the tags, hence is skipped.`)
+                        console.log(`Failed to get some box information from the tags. Skipping...`)
                         continue;
                     }
                     
@@ -199,7 +225,14 @@ Resources:
                         }
                         
                         const currentAccessKeyId = AccessKeyMetadata[0].AccessKeyId;
-                        const newKey = await iam.createAccessKey({ UserName: user.UserName }).promise();
+                        var newKey = await iam.createAccessKey({ UserName: user.UserName }).promise();
+                        newKey = newKey ? newKey.AccessKey : undefined;
+                        
+                        if (!newKey) {
+                            console.log(`Failed to new key for user: ${user.UserName}. Skipping...`)
+                            continue;
+                        }
+                        console.log(newKey);
                         
                         const response = await ec2.describeInstances({
                             Filters: [
@@ -254,7 +287,6 @@ Resources:
             }
         };
 
-      
   # IAM and Policy Establishment.
   CTFUserRole:
     Type: AWS::IAM::Role
@@ -524,7 +556,7 @@ Resources:
           dpkg -i amazon-ssm-agent.deb
           systemctl enable amazon-ssm-agent
           systemctl start amazon-ssm-agent
-
+    
 Outputs:
   CTFMachineInstanceId:
     Value: !Ref CTFMachineEC2Instance
