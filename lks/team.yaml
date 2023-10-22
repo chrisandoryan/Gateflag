@@ -165,3 +165,9 @@ Outputs:
   CTFMachinePublicIp:
     Value: !GetAtt CTFMachineEC2Instance.PublicIp
     Description: Public IP address of the CTF EC2 instance
+  CTFRoot:
+    Value: !GetAtt CTFRoot.Arn
+    Description: CTFRoot
+  CTFUser:
+    Value: !GetAtt CTFUser.Arn
+    Description: CTFUser

@@ -78,7 +78,7 @@ Resources:
           - StatusCode: 200
         RequestParameters:
           integration.request.header.x-source-ip: context.identity.sourceIp
-          integration.request.header.x-invoker-account-id: context.identity.accountId
+          integration.request.header.x-userarn: context.identity.userArn
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
@@ -98,7 +98,7 @@ Resources:
           - StatusCode: 200
         RequestParameters:
           integration.request.header.x-source-ip: context.identity.sourceIp
-          integration.request.header.x-invoker-account-id: context.identity.accountId
+          integration.request.header.x-userarn: context.identity.userArn
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
