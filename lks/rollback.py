@@ -1,4 +1,4 @@
-from provisioner import get_stack_name, deploy, TEAM
+from provisioner import get_stack_name, deploy, TEAM, delete_stack
 import aws_config
 import boto3
 import json
@@ -26,6 +26,9 @@ def rollback(team_name):
 
     parameters = {x['ParameterKey']: x['ParameterValue'] for x in stack_parameters}
     modified = json.dumps(template_body)
+
+    print('Rollback instance for %s' % team_name)
+    delete_stack(stack_name)
     outputs = deploy(stack_name, modified, parameters)
     print(outputs)
 
