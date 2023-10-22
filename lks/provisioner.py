@@ -115,9 +115,7 @@ if __name__ == '__main__':
         print(outputs)
         print()
 
-        team_parameters = {
-            'EnvironmentName': aws_config.ENVIRONMENT_NAME,
-        }
+        team_parameters = aws_config.TEAM_TEMPLATE_PARAMETERS
 
         for output in outputs:
             team_parameters[output['OutputKey']] = output['OutputValue']

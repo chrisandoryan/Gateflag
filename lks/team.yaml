@@ -6,9 +6,13 @@ Parameters:
     Type: String
     Default: Gateflag
     Description: A friendly environment name that will be used for namespacing all cluster resources.
-  CTFMachineAMI:
+  CTFMachineAMI1:
     Type: String
-    Default: ami-0df7a207adb9748c7
+    Default: ami-0015ec7d1ef8504ee
+    Description: The AMI ID for CTF challenge machine that will be created using EC2.
+  CTFMachineAMI2:
+    Type: String
+    Default: ami-0a1e7a1a9eaf0fdba
     Description: The AMI ID for CTF challenge machine that will be created using EC2.
   CTFEC2KeyPair:
     Type: String
@@ -100,7 +104,7 @@ Resources:
       SecurityGroupIds:
         - !Ref EC2SecurityGroupGroupId
       SubnetId: !Ref EC2Subnet
-      ImageId: !Ref CTFMachineAMI
+      ImageId: !Ref CTFMachineAMI1
       Tags:
         # This tag is required to perform access keys rotation according to the team that this box belongs to (see lambda: RotateIAMKeysLambda).
         - Key: Name

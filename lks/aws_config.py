@@ -13,6 +13,13 @@ GLOBAL_TEMPLATE_PARAMETERS = {
     'FlagServerHost': os.getenv('FLAG_SERVER_HOST', 'https://flaggy.free.beeceptor.com'),
 }
 
+TEAM_TEMPLATE_PARAMETERS = {
+    'EnvironmentName': ENVIRONMENT_NAME,
+    'CTFMachineAMI1': 'ami-0015ec7d1ef8504ee',
+    'CTFMachineAMI2': 'ami-0a1e7a1a9eaf0fdba',
+    'CTFEC2KeyPair': 'test-infra-lks',
+}
+
 TEAMS = [
     'Team01',
     'Team02',
