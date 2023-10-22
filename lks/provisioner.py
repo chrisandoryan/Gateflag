@@ -125,11 +125,12 @@ if __name__ == '__main__':
             template = f.read()
             f.close()
             template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
-            template = template.replace('__TEAM__', team)
-            outputs = deploy(get_stack_name(TEAM, team), template, team_parameters)
+            template = template.replace('__TEAM__', team['name'])
+            team_parameters['PrivateIpAddress'] = team['ip']
+            outputs = deploy(get_stack_name(TEAM, team['name']), template, team_parameters)
             print(outputs)
             print()
     else:
         for team in aws_config.TEAMS:
-            delete_stack(get_stack_name(TEAM, team))
+            delete_stack(get_stack_name(TEAM, team['name']))
         delete_stack(get_stack_name(GLOBAL))

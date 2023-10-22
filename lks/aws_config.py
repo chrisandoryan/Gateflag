@@ -21,6 +21,12 @@ TEAM_TEMPLATE_PARAMETERS = {
 }
 
 TEAMS = [
-    'Team01',
-    'Team02',
+    {
+        'name': 'Team01',
+        'ip': '10.0.1.101',
+    },
+    {
+        'name': 'Team02',
+        'ip': '10.0.1.102',
+    },
 ]

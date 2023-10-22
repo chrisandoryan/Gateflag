@@ -11,8 +11,8 @@ session = boto3.Session(
 
 cf_client = session.client('cloudformation')
 
-def rollback(team):
-    stack_name = get_stack_name(TEAM, team)
+def rollback(team_name):
+    stack_name = get_stack_name(TEAM, team_name)
     
     response = cf_client.describe_stacks(StackName=stack_name)
     stack_parameters = response['Stacks'][0]['Parameters']

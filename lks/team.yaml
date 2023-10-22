@@ -53,6 +53,12 @@ Parameters:
     Default: EC2Subnet
     Description: EC2Subnet
 
+  # be cautious, must assigned uniquely per instance
+  PrivateIpAddress:
+    Type: String
+    Default: 10.0.1.1
+    Description: Assigned internal IP address.
+
 Resources:
   # IAM Users Configuration
   CTFUser:
@@ -99,6 +105,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
+      PrivateIpAddress: !Ref PrivateIpAddress
       KeyName: !Ref CTFEC2KeyPair
       IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
