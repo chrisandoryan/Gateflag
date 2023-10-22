@@ -73,10 +73,11 @@ Resources:
       Integration:
         IntegrationHttpMethod: POST
         Type: HTTP
-        Uri: !Sub ${FlagServerHost}/user_flag
+        Uri: !Sub ${FlagServerHost}/api/v1/flagserver/user_flag
         IntegrationResponses:
           - StatusCode: 200
         RequestParameters:
+          integration.request.header.x-adce-secret: __GATEFLAG_SECRET__
           integration.request.header.x-source-ip: context.identity.sourceIp
           integration.request.header.x-userarn: context.identity.userArn
       MethodResponses:
@@ -93,10 +94,11 @@ Resources:
       Integration:
         IntegrationHttpMethod: POST
         Type: HTTP
-        Uri: !Sub ${FlagServerHost}/root_flag
+        Uri: !Sub ${FlagServerHost}/api/v1/flagserver/root_flag
         IntegrationResponses:
           - StatusCode: 200
         RequestParameters:
+          integration.request.header.x-adce-secret: __GATEFLAG_SECRET__
           integration.request.header.x-source-ip: context.identity.sourceIp
           integration.request.header.x-userarn: context.identity.userArn
       MethodResponses:
@@ -130,16 +132,21 @@ Resources:
         type: object
         additionalProperties: false
         properties:
-          flag:
+          status:
             type: string
-          type:
+          message:
             type: string
-          generated_at:
-            type: string
+          data:
+            type: object
+            properties:
+              flag:
+                type: string
+              type:
+                type: string
+              generated_at:
+                type: string
         required:
-          - flag
-          - type
-          - generated_at
+          - status
 
   # Lambda & CloudWatch Establishment for Periodic Key Rotation
   RotateIAMKeysLambda:
