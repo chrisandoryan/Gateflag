@@ -6,8 +6,14 @@ AWS_REGION_NAME = 'ap-southeast-1'
 
 ENVIRONMENT_NAME = 'GateflagLKS'
 GLOBAL_TEMPLATE_FILE = 'global.yaml'
+TEAM_TEMPLATE_FILE = 'team.yaml'
 
 GLOBAL_TEMPLATE_PARAMETERS = {
     'EnvironmentName': ENVIRONMENT_NAME,
     'FlagServerHost': os.getenv('FLAG_SERVER_HOST', 'https://flaggy.free.beeceptor.com'),
 }
+
+TEAMS = [
+    'Team01',
+    'Team02',
+]

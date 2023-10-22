@@ -11,8 +11,10 @@ cf_client = session.client('cloudformation')
 
 # enum
 GLOBAL = 0
+TEAM = 1
 stack_suffixes = {
     GLOBAL: 'global',
+    TEAM: 'team',
 }
 
 def get_stack_name(stack_type, suffix=''):
@@ -38,7 +40,7 @@ def deploy(stack_name, template_body, params):
             response = cf_client.update_stack(
                 StackName=stack_name,
                 TemplateBody=template_body,
-                Capabilities=['CAPABILITY_AUTO_EXPAND', 'CAPABILITY_IAM'],
+                Capabilities=['CAPABILITY_AUTO_EXPAND', 'CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                 Parameters=parameters,
             )
             
@@ -56,7 +58,7 @@ def deploy(stack_name, template_body, params):
             response = cf_client.create_stack(
                 StackName=stack_name,
                 TemplateBody=template_body,
-                Capabilities=['CAPABILITY_AUTO_EXPAND', 'CAPABILITY_IAM'],
+                Capabilities=['CAPABILITY_AUTO_EXPAND', 'CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
                 Parameters=parameters,
             )
 
@@ -98,14 +100,37 @@ def delete_stack(stack_name):
         else:
             print('Stack deletion failed.')
 
-#f = open(aws_config.GLOBAL_TEMPLATE_FILE)
-#template = f.read()
-#f.close()
-#outputs = deploy(get_stack_name(GLOBAL), template, aws_config.GLOBAL_TEMPLATE_PARAMETERS)
-#gateway_url = ''
-#for output in outputs:
-#    if output['OutputKey'] == 'GateflagRestApiUrl':
-#        gateway_url = output['OutputValue']
-#print(f'{gateway_url = }')
 
-#delete_stack(get_stack_name(GLOBAL))
+if __name__ == '__main__':
+    DEPLOY = 1 # change this
+    
+    if DEPLOY:
+        f = open(aws_config.GLOBAL_TEMPLATE_FILE)
+        template = f.read()
+        f.close()
+    
+        template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
+    
+        outputs = deploy(get_stack_name(GLOBAL), template, aws_config.GLOBAL_TEMPLATE_PARAMETERS)
+        print(outputs)
+    
+        team_parameters = {
+            'EnvironmentName': aws_config.ENVIRONMENT_NAME,
+        }
+    
+        for output in outputs:
+            team_parameters[output['OutputKey']] = output['OutputValue']
+    
+        f = open(aws_config.TEAM_TEMPLATE_FILE)
+        template = f.read()
+        f.close()
+    
+        for team in aws_config.TEAMS:
+            template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
+            template = template.replace('__TEAM__', team)
+            outputs = deploy(get_stack_name(TEAM, team), template, team_parameters)
+            print(outputs)
+    else:
+        for team in aws_config.TEAMS:
+            delete_stack(get_stack_name(TEAM, team))
+        delete_stack(get_stack_name(GLOBAL))
