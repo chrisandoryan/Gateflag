@@ -10,11 +10,17 @@ Parameters:
     Type: String
     Default: https://flaggy.free.beeceptor.com
     Description: The URL of host server that will emit the CTF flag upon request.
+  CTFTickDuration:
+    Type: Number
+    Description: Minute definition of a 'tick' on the CTF competition.
+    Default: 5
+    MinValue: 1
+    MaxValue: 59
   CTFMachineAMI:
     Type: String
     Default: ami-0df7a207adb9748c7
     Description: The AMI ID for CTF challenge machine that will be created using EC2.
-  EC2KeyPair:
+  CTFEC2KeyPair:
     Type: String
     Default: siahaan-macbookair
     Description: The KeyPair configuration to connect to EC2 instances.
@@ -124,28 +130,7 @@ Resources:
           - type
           - generated_at
   
-  # SSM Establishment for Key Rotation
-  # KeyRotationSSMDocument:
-  #   Type: AWS::SSM::Document
-  #   Properties:
-  #     Content:
-  #       schemaVersion: '0.3'
-  #       description: 'Run a script on Linux instances.'
-  #       mainSteps:
-  #       - name: sayHello
-  #         action: 'aws:runCommand'
-  #         inputs:
-  #           DocumentName: AWS-RunShellScript
-  #           Parameters:
-  #             commands:
-  #             - "echo $1"
-  #             - "echo $2"
-  #             - "echo $3"
-  #     DocumentFormat: YAML
-  #     DocumentType: Command
-  #     Name: 'Gateflag_KeyRotationSSM'
-  
-  # Lambda Establishment for Key Rotation
+  # Lambda & CloudWatch Establishment for Periodic Key Rotation
   RotateIAMKeysLambda:
     Type: 'AWS::Serverless::Function'
     Properties:
@@ -282,6 +267,15 @@ Resources:
                 };
             }
         };
+  RotateIAMKeysCloudWatchEventRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Description: 'Run RotateIAMKeysLambda fuction every N minutes'
+      ScheduleExpression: !Sub 'rate(${CTFTickDuration} minutes)'
+      State: 'ENABLED'
+      Targets:
+        - Arn: !GetAtt RotateIAMKeysLambda.Arn
+          Id: 'RotateIAMKeysLambda'
 
   # IAM and Policy Establishment.
   CTFUserRole:
@@ -363,7 +357,14 @@ Resources:
                   - ssm:SendCommand
                   - ssm:StartSession
                   - ssm:AssumeRole
+                  - lambda:InvokeFunction
                 Resource: '*'
+              - Effect: 'Allow'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
               
   # IAM Users Configuration
   CTFUserTeam01:
@@ -378,7 +379,7 @@ Resources:
         - Key: BoxLocalUserName
           Value: !Ref CTFBoxLowPrivilegeUser
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
       ManagedPolicyArns:
         - !Ref CTFUserGetFlagThroughAPIGateway
   CTFRootTeam01:
@@ -393,7 +394,7 @@ Resources:
         - Key: BoxLocalUserName
           Value: root
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
       ManagedPolicyArns:
         - !Ref CTFRootGetFlagThroughAPIGateway
   CTFUserAccessKey:
@@ -415,13 +416,13 @@ Resources:
       InstanceTenancy: default
       Tags:
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -433,7 +434,7 @@ Resources:
       VpcId: !Ref Vpc
       Tags:
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
   PublicRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -448,7 +449,7 @@ Resources:
       VpcId: !Ref Vpc
       Tags:
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
   EC2SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -474,7 +475,7 @@ Resources:
           ToPort: 22
       Tags:
         - Key: ManagedBy
-          Value: Gateflag
+          Value: !Ref EnvironmentName
   EC2SSMRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -501,7 +502,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      KeyName: !Ref EC2KeyPair
+      KeyName: !Ref CTFEC2KeyPair
       IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
         - !GetAtt EC2SecurityGroup.GroupId
@@ -513,7 +514,7 @@ Resources:
           Value: Team01
         # This tag indicates that the box is Gateflag-managed so Gateflag could perform its automated managements.
         - Key: ManagedBy 
-          Value: Gateflag
+          Value: !Ref EnvironmentName
       UserData:
         Fn::Base64: !Sub |          
           #!/bin/bash -xe
