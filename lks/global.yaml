@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS CloudFormation template for Gateflag deployment.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Gateflag
+    Description: A friendly environment name that will be used for namespacing all cluster resources.
+  FlagServerHost:
+    Type: String
+    Default: https://flaggy.free.beeceptor.com
+    Description: The URL of host server that will emit the CTF flag upon request.
+
+Resources:
+  # API Gateway Establishment. 
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref EnvironmentName
+      FailOnWarnings: 'true'
+  RestApiUserFlagResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      RestApiId: !Ref RestApi
+      PathPart: user_flag
+  RestApiRootFlagResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      RestApiId: !Ref RestApi
+      PathPart: root_flag
+  RestApiUserFlagMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: AWS_IAM
+      HttpMethod: GET
+      ResourceId: !Ref RestApiUserFlagResource
+      RestApiId: !Ref RestApi
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: HTTP
+        Uri: !Sub ${FlagServerHost}/user_flag
+        IntegrationResponses:
+          - StatusCode: 200
+        RequestParameters:
+          integration.request.header.x-source-ip: context.identity.sourceIp
+          integration.request.header.x-invoker-account-id: context.identity.accountId
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: !Ref FlagModel
+  RestApiRootFlagMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: AWS_IAM
+      HttpMethod: GET
+      ResourceId: !Ref RestApiRootFlagResource
+      RestApiId: !Ref RestApi
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: HTTP
+        Uri: !Sub ${FlagServerHost}/root_flag
+        IntegrationResponses:
+          - StatusCode: 200
+        RequestParameters:
+          integration.request.header.x-source-ip: context.identity.sourceIp
+          integration.request.header.x-invoker-account-id: context.identity.accountId
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: !Ref FlagModel
+  RestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: 
+      - RestApiUserFlagMethod
+      - RestApiRootFlagMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: Deployment of Gateflag.
+  RestApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: stable
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref RestApiDeployment
+      Description: Stage marked as stable for Gateflag deployment.
+  FlagModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: application/json
+      Name: FlagModel
+      RestApiId: !Ref RestApi
+      Schema:
+        "$schema": http://json-schema.org/draft-04/schema#
+        title: Flag
+        type: object
+        additionalProperties: false
+        properties:
+          flag:
+            type: string
+          type:
+            type: string
+          generated_at:
+            type: string
+        required:
+          - flag
+          - type
+          - generated_at
+
+Outputs:
+  GateflagRestApiUrl:
+    Description: URL of the Gateflag REST API
+    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${RestApiStage}"
