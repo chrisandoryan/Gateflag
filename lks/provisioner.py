@@ -103,33 +103,34 @@ def delete_stack(stack_name):
 
 if __name__ == '__main__':
     DEPLOY = 1 # change this
-    
+
     if DEPLOY:
         f = open(aws_config.GLOBAL_TEMPLATE_FILE)
         template = f.read()
         f.close()
-    
+
         template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
-    
+
         outputs = deploy(get_stack_name(GLOBAL), template, aws_config.GLOBAL_TEMPLATE_PARAMETERS)
         print(outputs)
-    
+        print()
+
         team_parameters = {
             'EnvironmentName': aws_config.ENVIRONMENT_NAME,
         }
-    
+
         for output in outputs:
             team_parameters[output['OutputKey']] = output['OutputValue']
-    
-        f = open(aws_config.TEAM_TEMPLATE_FILE)
-        template = f.read()
-        f.close()
-    
+
         for team in aws_config.TEAMS:
+            f = open(aws_config.TEAM_TEMPLATE_FILE)
+            template = f.read()
+            f.close()
             template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
             template = template.replace('__TEAM__', team)
             outputs = deploy(get_stack_name(TEAM, team), template, team_parameters)
             print(outputs)
+            print()
     else:
         for team in aws_config.TEAMS:
             delete_stack(get_stack_name(TEAM, team))
