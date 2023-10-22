@@ -39,7 +39,7 @@ Resources:
               "Resource": "execute-api:/*/*/*",
               "Condition": {
                   "StringNotEquals": {
-                      "aws:sourceVpc": "${Vpc}"
+                      "aws:sourceVpce": "${RestApiVpcEndpoint}"
                   }
               }
             },
@@ -396,7 +396,7 @@ Resources:
     Properties:
       CidrBlock: 10.0.0.0/16
       EnableDnsSupport: true
-      EnableDnsHostnames: false
+      EnableDnsHostnames: true
       InstanceTenancy: default
       Tags:
         - Key: ManagedBy
@@ -480,6 +480,17 @@ Resources:
       Path: '/'
       Roles:
         - !Ref EC2SSMRole
+  RestApiVpcEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+      PrivateDnsEnabled: true
+      VpcId: !Ref Vpc
+      SecurityGroupIds:
+        - !GetAtt EC2SecurityGroup.GroupId
+      SubnetIds:
+        - !Ref EC2Subnet
+      VpcEndpointType: Interface
 
 Outputs:
   GateflagRestApiUrl:
