@@ -125,38 +125,25 @@ Resources:
           - generated_at
   
   # SSM Establishment for Key Rotation
-  KeyRotationSSMDocument:
-    Type: AWS::SSM::Document
-    Properties:
-      Content:
-        schemaVersion: '0.3'
-        description: 'Run a script on Linux instances.'
-        parameters:
-          AutomationAssumeRole:
-            type: String
-            description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
-            default: ''
-          commands:
-            type: String
-            description: "(Required) The commands to run or the path to an existing script on the instance."
-            default: 'echo Hello World'
-          InstanceId:
-            type: String
-            description: "(Required) The instance ID you want to run commands on."
-            default: ''
-        mainSteps:
-        - name: sayHello
-          action: 'aws:runCommand'
-          inputs:
-            DocumentName: AWS-RunShellScript
-            Parameters:
-              InstanceIds:
-              - '{{InstanceId}}'
-              commands:
-              - "{{ commands }}"
-      DocumentFormat: YAML
-      DocumentType: Automation
-      Name: 'CFN_runbook_example'
+  # KeyRotationSSMDocument:
+  #   Type: AWS::SSM::Document
+  #   Properties:
+  #     Content:
+  #       schemaVersion: '0.3'
+  #       description: 'Run a script on Linux instances.'
+  #       mainSteps:
+  #       - name: sayHello
+  #         action: 'aws:runCommand'
+  #         inputs:
+  #           DocumentName: AWS-RunShellScript
+  #           Parameters:
+  #             commands:
+  #             - "echo $1"
+  #             - "echo $2"
+  #             - "echo $3"
+  #     DocumentFormat: YAML
+  #     DocumentType: Command
+  #     Name: 'Gateflag_KeyRotationSSM'
   
   # Lambda Establishment for Key Rotation
   RotateIAMKeysLambda:
@@ -178,13 +165,18 @@ Resources:
         const ssm = new AWS.SSM();
 
         async function updateCliConfiguration(instanceId, username, accessKey, secretKey) {
-            await ssm.sendCommand({
+            const result = await ssm.sendCommand({
               InstanceIds: [instanceId],
-              DocumentName: 'KeyRotatorSSMDocumentForLambda',
+              DocumentName: "AWS-RunShellScript",
               Parameters: {
-                commands: [accessKey, secretKey, username],
+                commands: [
+                  `su ${username} -c "echo '[default]' > ~/.aws/credentials"`, 
+                  `su ${username} -c "echo 'aws_access_key_id=${accessKey}' >> ~/.aws/credentials"`, 
+                  `su ${username} -c "echo 'aws_secret_access_key=${secretKey}' >> ~/.aws/credentials"`
+                ],
               },
             }).promise();
+            console.log("Rotation command has been executed via SSM. Result: ", result);
         }
 
         exports.handler = async (event, context) => {
@@ -221,7 +213,7 @@ Resources:
                             const currentAccessKeyId = AccessKeyMetadata[1].AccessKeyId;
                             await iam.deleteAccessKey({ UserName: user.UserName, AccessKeyId: currentAccessKeyId }).promise();
                             
-                            console.log(`There are already two access keys for user: ${user.UserName}. One of the access key is deleted successfully.`);
+                            console.log(`There are already two access keys for user: ${user.UserName}. One of the access key has been deleted successfully.`);
                         }
                         
                         const currentAccessKeyId = AccessKeyMetadata[0].AccessKeyId;
@@ -243,6 +235,10 @@ Resources:
                                 {
                                     Name: 'tag:Name',
                                     Values: [gateflagSpecificName]
+                                },
+                                {
+                                    Name: 'instance-state-name',
+                                    Values: ['running']
                                 }
                             ]
                         }).promise();
@@ -549,13 +545,13 @@ Resources:
           # Add instruction on how to get the flag in this instance.
           echo "Use /usr/local/bin/takeflag to get the user/root flag." > /tmp/CTF-README.txt
 
-          # Install AWS SSM Agent
-          mkdir /tmp/ssm
-          cd /tmp/ssm
-          wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
-          dpkg -i amazon-ssm-agent.deb
-          systemctl enable amazon-ssm-agent
-          systemctl start amazon-ssm-agent
+          # Install AWS SSM Agent (for AMI without SSM pre-installed)
+          # mkdir /tmp/ssm
+          # cd /tmp/ssm
+          # wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+          # dpkg -i amazon-ssm-agent.deb
+          # systemctl enable amazon-ssm-agent
+          # systemctl start amazon-ssm-agent
     
 Outputs:
   CTFMachineInstanceId:
