@@ -25,6 +25,32 @@ Resources:
     Properties:
       Name: !Ref EnvironmentName
       FailOnWarnings: 'true'
+      EndpointConfiguration:
+        Types:
+          - PRIVATE
+      Policy: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*/*/*",
+              "Condition": {
+                  "StringNotEquals": {
+                      "aws:sourceVpc": "${Vpc}"
+                  }
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "execute-api:/*/*/*"
+            }
+          ]
+        }
   RestApiUserFlagResource:
     Type: AWS::ApiGateway::Resource
     Properties:
