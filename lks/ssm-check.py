@@ -8,7 +8,7 @@ session = boto3.Session(
 )
 ssm_client = session.client('ssm')
 
-def ssm_check(instance_id, user):
+def ssm_check_flag_exists(instance_id, user):
     response = ssm_client.start_session(
         Target=instance_id
     )
@@ -31,12 +31,43 @@ def ssm_check(instance_id, user):
         CommandId=command_id
     )
 
-    print(output)
+    #print(output)
     if 'LKS{' in output['StandardOutputContent']:
+        return True
+    return False
+
+def ssm_check_code_unchanged(instance_id, path, part):
+    response = ssm_client.start_session(
+        Target=instance_id
+    )
+
+    command = 'sudo runuser -l root -c \'eval "$(cat ~/.bashrc)"; sudo cat %s\'' % (path)
+    response = ssm_client.send_command(
+        InstanceIds=[instance_id],
+        DocumentName='AWS-RunShellScript',
+        Parameters={'commands': [command]},
+    )
+
+    command_id = response['Command']['CommandId']
+    ssm_client.get_waiter('command_executed').wait(
+        InstanceId=instance_id,
+        CommandId=command_id
+    )
+
+    output = ssm_client.get_command_invocation(
+        InstanceId=instance_id,
+        CommandId=command_id
+    )
+    #print(output)
+
+    if part in output['StandardOutputContent']:
         return True
     return False
 
 if __name__ == '__main__':
     instance_id = 'i-0eaf0251e98c95c38'
-    ssm_check(instance_id, 'root')
-    ssm_check(instance_id, 'ubuntu')
+    ssm_check_flag_exists(instance_id, 'root')
+    ssm_check_flag_exists(instance_id, 'ubuntu')
+
+    print(ssm_check_code_unchanged(instance_id, '/usr/local/bin/takeflag', '''r = requests.get(url, headers=signing_headers(METHOD, url, body))
+    print(r.content.decode("utf-8"))'''))
