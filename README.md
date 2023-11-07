@@ -16,7 +16,7 @@ Instead of directly updating the value of the user/root flag inside the CTF inst
 ![Takeflag Binary](./documentation/takeflag_binary.png "When You Get Flag in Gateflag")
 
 ### POV: CTF Administrator
-After deploying the cloud infrastructure, the CTF Administrator should configure their Flag Server to handle incoming requests relayed by the AWS API Gateway and issue the correct flag for the user. 
+After deploying the cloud infrastructure, the CTF Administrator should configure their **Flag Server** to handle incoming requests relayed by the AWS API Gateway and issue the correct flag for the user. 
 
 The server will receive a request with information such as the IP address of the machine and the IAM User’s ARN of the invoker.
 ```
@@ -32,8 +32,6 @@ X-Forwarded-Proto: https
 X-User-Arn: 725126486995
 X-Source-Ip: 10.0.1.101
 Accept-Encoding: gzip
-
-
 ```
 
 ### POV: CTF Participants
@@ -54,7 +52,7 @@ cd Gateflag/
 ```
 Deploy using AWS CLI:
 ```
-aws cloudformation deploy --template-file ./aws/template.yaml --stack-name gateflag-stack
+aws cloudformation deploy --template-file ./dist/template.yaml --stack-name gateflag-stack
 ```
 Before you can use AWS CLI to deploy this project using CloudFormation, you need to install CLI on your machine and configure it using your credentials (access key/secret key). See [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 
