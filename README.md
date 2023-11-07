@@ -16,10 +16,23 @@ Instead of directly updating the value of the user/root flag inside the CTF inst
 ![Takeflag Binary](./documentation/takeflag_binary.png "When You Get Flag in Gateflag")
 
 ### POV: CTF Administrator
-After deploying the cloud infrastructure, the CTF Administrator should configure the Flag Server to handle incoming requests relayed by the AWS API Gateway and issue the correct flag for the user. 
+After deploying the cloud infrastructure, the CTF Administrator should configure their Flag Server to handle incoming requests relayed by the AWS API Gateway and issue the correct flag for the user. 
 
 The server will receive a request with information such as the IP address of the machine and the IAM User’s ARN of the invoker.
 ```
+POST /user_flag HTTP/1.1
+Host: flaggy.free.beeceptor.com
+User-Agent: AmazonAPIGateway_mxkb7e6wih
+content-length: 0
+Accept: application/json
+X-Amzn-Apigateway-Api-Id: mxkb7e6wih
+x-Amzn-Trace-Id: Root=1-653555f7-27c812bc79b53d99d0c16925
+X-Forwarded-For: 18.138.134.203
+X-Forwarded-Proto: https
+X-User-Arn: 725126486995
+X-Source-Ip: 10.0.1.101
+Accept-Encoding: gzip
+
 
 ```
 
