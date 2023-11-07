@@ -30,7 +30,7 @@ X-Amzn-Apigateway-Api-Id: mxkb7e6wih
 x-Amzn-Trace-Id: Root=1-653555f7-27c812bc79b53d99d0c16925
 X-Forwarded-For: 18.138.134.203
 X-Forwarded-Proto: https
-X-User-Arn: 725126486995
+X-User-Arn: arn:aws:iam::793794784967:user/GateflagCTFUserTeam01
 X-Source-Ip: 10.0.1.101
 Accept-Encoding: gzip
 ```
