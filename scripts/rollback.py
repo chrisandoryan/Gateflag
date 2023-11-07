@@ -1,4 +1,4 @@
-from provisioner import get_stack_name, deploy, TEAM, delete_stack
+from dist.provision import get_stack_name, deploy, TEAM, delete_stack
 import aws_config
 import boto3
 import json
