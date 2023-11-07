@@ -6,6 +6,7 @@
 ## Cloud Environments
 Currently built for AWS environment with CloudFormation stack. The so-called stack consists of:
 - AWS API Gateway (REST)
+- AWS Lambda
 - AWS EC2
 - AWS IAM & Managed Policies
 - VPC, Subnet & Routing, and other networking configurations.
