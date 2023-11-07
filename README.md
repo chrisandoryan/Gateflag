@@ -58,6 +58,8 @@ aws cloudformation deploy --template-file ./dist/template.yaml --stack-name gate
 Before you can use AWS CLI to deploy this project using CloudFormation, you need to install CLI on your machine and configure it using your credentials (access key/secret key). See [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 
 #### Provisioned Deployment
+Credits to [Prajna Prasetya](https://github.com/prajnapras19) and [Muhammad Faishol Amirul Mukminin](https://github.com/faishol01)
+
 TBA.
 
 ## Future Improvements
