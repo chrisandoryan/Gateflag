@@ -26,7 +26,7 @@ Parameters:
     Description: The KeyPair configuration to connect to EC2 instances.
   FlagTakerScript:
     Type: String
-    Default: https://raw.githubusercontent.com/chrisandoryan/Gateflag/main/aws/take_flag.py
+    Default: https://raw.githubusercontent.com/chrisandoryan/Gateflag/main/dist/take_flag.py
     Description: Script that automates the flag-taking process inside EC2 CTF instances.
   CTFBoxLowPrivilegeUser:
     Type: String
@@ -87,7 +87,7 @@ Resources:
           - StatusCode: 200
         RequestParameters:
           integration.request.header.x-source-ip: context.identity.sourceIp
-          integration.request.header.x-invoker-account-id: context.identity.accountId
+          integration.request.header.x-user-arn: context.identity.userArn
       MethodResponses:
         - StatusCode: "200"
           ResponseModels:
