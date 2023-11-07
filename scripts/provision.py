@@ -17,6 +17,11 @@ stack_suffixes = {
     TEAM: 'team',
 }
 
+COMMA = ','
+GOOD_STATES = ('CREATE_COMPLETE,UPDATE_COMPLETE,UPDATE_ROLLBACK_COMPLETE').split(COMMA)
+BUSY_STATES = ('CREATE_IN_PROGRESS,ROLLBACK_IN_PROGRESS,DELETE_IN_PROGRESS,UPDATE_IN_PROGRESS,UPDATE_COMPLETE_CLEANUP_IN_PROGRESS,UPDATE_ROLLBACK_IN_PROGRESS,UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS,REVIEW_IN_PROGRESS').split(COMMA)
+BAD_STATES  = ('CREATE_FAILED,ROLLBACK_FAILED,DELETE_FAILED,UPDATE_ROLLBACK_FAILED,DELETE_COMPLETE,ROLLBACK_COMPLETE').split(COMMA)
+
 def get_stack_name(stack_type, suffix=''):
     if suffix != '':
         return '%s-%s-%s' % (aws_config.ENVIRONMENT_NAME, stack_suffixes[stack_type], suffix)
@@ -29,8 +34,20 @@ def deploy(stack_name, template_body, params):
 
     stack_exists = False
     try:
-        cf_client.describe_stacks(StackName=stack_name)
-        stack_exists = True
+        stack = cf_client.describe_stacks(StackName=stack_name)
+        print(stack['Stacks'][0]['StackStatus'])
+        if stack['Stacks'][0]['StackStatus'] in GOOD_STATES:
+            stack_exists = True
+        elif stack['Stacks'][0]['StackStatus'] in BUSY_STATES:
+            print('Stack is already building... Cannot continue.')
+            exit()
+        else:
+            print('Stack is in a bad state... Will perform stack deletion.')
+            cf_client.delete_stack(StackName=stack_name)
+            print('Waiting until stack %s is deleted...' % stack_name)
+            cf_client.get_waiter('stack_delete_complete').wait(StackName=stack_name)
+
+
     except cf_client.exceptions.ClientError as e:
         stack_exists = False
     
@@ -44,7 +61,7 @@ def deploy(stack_name, template_body, params):
                 Parameters=parameters,
             )
             
-            print('Waiting until stack %s deployed...' % stack_name)
+            print('Waiting until stack %s is deployed...' % stack_name)
             cf_client.get_waiter('stack_update_complete').wait(StackName=stack_name)
             
             stack_info = cf_client.describe_stacks(StackName=stack_name)
@@ -110,6 +127,7 @@ if __name__ == '__main__':
         f.close()
 
         template = template.replace('__GATEFLAG__', aws_config.ENVIRONMENT_NAME)
+        template = template.replace('__GATEFLAG_SECRET__', aws_config.GATEFLAG_SECRET)
 
         outputs = deploy(get_stack_name(GLOBAL), template, aws_config.GLOBAL_TEMPLATE_PARAMETERS)
         print(outputs)
@@ -133,4 +151,5 @@ if __name__ == '__main__':
     else:
         for team in aws_config.TEAMS:
             delete_stack(get_stack_name(TEAM, team['name']))
+
         delete_stack(get_stack_name(GLOBAL))
